@@ -1,10 +1,11 @@
 {
   "name": "mycloud-learn-lab",
   "version": "1.0.0",
-  "description": "AWS 콘솔 클릭 흐름을 연습하는 나만의 AWS 디지털 트윈 (VPC/EC2/S3/RDS)",
+  "description": "AWS 콘솔 클릭 흐름을 연습하는 나만의 AWS 디지털 트윈 (VPC · EC2 · ELB · EKS · S3 · RDS · IAM · CloudWatch)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "icons": "node scripts/import-aws-icons.js"
   },
   "dependencies": {
     "express": "^4.19.2",

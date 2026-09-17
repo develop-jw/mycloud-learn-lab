@@ -10,3 +10,6 @@ uploads/*
 .DS_Store
 .vscode/
 *.log
+
+# ---- 공식 AWS 아이콘 (각자 내려받아 npm run icons 로 생성, 재배포 금지) ----
+public/aws-icons/
