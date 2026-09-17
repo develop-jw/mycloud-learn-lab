@@ -229,7 +229,7 @@ async function renderSearch(p) {
     ...o.lbs.map((x) => ["로드 밸런서", "elb", x.name, x.dnsName || x.id, detailHref("elb", "lbs", x.id)]),
     ...o.tgs.map((x) => ["대상 그룹", "tg", x.name, x.id, detailHref("elb", "tgs", x.id)]),
     ...o.cloudfront.map((x) => ["CloudFront", "cloudfront", x.domainName || x.id, x.comment || x.id, detailHref("edge", "cloudfront", x.id)]),
-    ...o.zones.map((x) => ["호스팅 영역", "route53", x.name, x.id, detailHref("edge", "route53", x.id)]),
+    ...o.zones.map((x) => ["호스팅 영역", "route53", x.domain, x.id, detailHref("edge", "route53", x.id)]),
     ...o.clusters.map((x) => ["EKS 클러스터", "eks", x.name, `v${x.version}`, detailHref("eks", "clusters", x.id)]),
     ...o.nodeGroups.map((x) => ["노드 그룹", "ec2", x.name, x.instanceType || "", listHref("eks", "nodegroups")]),
     ...o.ecr.map((x) => ["ECR 리포지토리", "ecr", x.name, x.uri || "", listHref("eks", "ecr")]),
