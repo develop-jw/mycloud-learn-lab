@@ -329,8 +329,8 @@ function buildDiagram(o) {
     vpcHtml = `<div class="dg-vpc" id="dg-vpc">
       <div class="dg-vpc-tag"><span class="cloud">${glyph("vpc")}</span><b>VPC</b><code>${esc(vpc.cidrBlock)}</code><small class="muted">${esc(vpc.name)}</small></div>
       <div class="dg-vpc-meta">
-        <span class="dg-chip ${igw ? "" : "off"}">${igw ? svc("igw", "xs") : ""}인터넷 게이트웨이</span>
-        <span class="dg-chip ${nats.length ? "" : "off"}">${nats.length ? svc("nat", "xs") : ""}NAT ${nats.length || ""}</span>
+        <span class="dg-chip igw ${igw ? "" : "off"}">${igw ? svc("igw", "xs") : ""}인터넷 게이트웨이</span>
+        <span class="dg-chip nat ${nats.length ? "" : "off"}">${nats.length ? svc("nat", "xs") : ""}NAT ${nats.length || ""}</span>
         ${vgw ? `<span class="dg-chip">${svc("vpn", "xs")}VPN</span>` : ""}
       </div>
       ${vpcs.length > 1 ? `<div class="dg-vpc-select">${vpcs.map((v) => `<button data-vpc="${v.id}" class="${v.id === vpc.id ? "on" : ""}">${esc(v.name)}</button>`).join("")}</div>` : ""}
@@ -354,9 +354,11 @@ function buildDiagram(o) {
 
   return `<div class="dg" id="dg">
     <svg class="dg-svg" id="dg-svg"></svg>
+    <svg class="dg-traffic" id="dg-traffic" aria-hidden="true"></svg>
     <div class="dg-grid">${chain}${vpcHtml}${right}</div>
   </div>
-  <div class="dg-legend"><span><i class="l-edge"></i>외부 요청 흐름</span><span><i class="l-inner"></i>내부 연결</span><span><i class="l-ghost"></i>아직 만들지 않은 서비스 (클릭해서 만들기)</span></div>`;
+  <div class="dg-legend"><span><i class="l-edge"></i>외부 요청 흐름</span><span><i class="l-inner"></i>내부 연결</span><span><i class="l-ghost"></i>아직 만들지 않은 서비스 (클릭해서 만들기)</span></div>
+  ${Flow.legendHtml()}`;
 }
 
 // 노드 사이 화살표 그리기 (레이아웃이 바뀌면 다시 계산)
@@ -376,7 +378,7 @@ function drawDiagramEdges() {
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const paths = [];
   // dir: "v"(세로 고정) 또는 자동 — 자동이면 가로로 겹치는 상자끼리만 세로로 잇기
-  const link = (a, b, cls, both = false, dir = "auto") => {
+  const link = (a, b, cls, both = false, dir = "auto", flow = "") => {
     const Aw = box(a, true);
     const Bw = box(b, true);
     if (!Aw || !Bw) return;
@@ -392,7 +394,7 @@ function drawDiagramEdges() {
       const yEnd = down ? Bw.t - 5 : Bw.b + 5;
       const mid = (y1 + yEnd) / 2;
       d = Math.abs(x1 - x2) < 1 ? `M${x1} ${y1} V${yEnd}` : `M${x1} ${y1} V${mid} H${x2} V${yEnd}`;
-      paths.push(`<path class="${klass}" d="${d}" marker-end="url(#ah-${klass})" ${both ? `marker-start="url(#ahs-${klass})"` : ""}/>`);
+      paths.push(`<path class="${klass}" data-flow="${flow}" data-ghost="${klass === "ghost" ? 1 : 0}" d="${d}" marker-end="url(#ah-${klass})" ${both ? `marker-start="url(#ahs-${klass})"` : ""}/>`);
       return;
     }
     const A = box(a);
@@ -421,28 +423,28 @@ function drawDiagramEdges() {
       const mid = (A.t + B.b) / 2;
       d = `M${x1} ${A.t - 2} V${mid} H${x2} V${B.b + 5}`;
     } else return;
-    paths.push(`<path class="${klass}" d="${d}" marker-end="url(#ah-${klass})" ${both ? `marker-start="url(#ahs-${klass})"` : ""}/>`);
+    paths.push(`<path class="${klass}" data-flow="${flow}" data-ghost="${klass === "ghost" ? 1 : 0}" d="${d}" marker-end="url(#ah-${klass})" ${both ? `marker-start="url(#ahs-${klass})"` : ""}/>`);
   };
-  link("dg-users", "dg-r53", "edge");
-  link("dg-r53", "dg-cf", "edge");
-  link("dg-cf", "dg-alb", "edge");
-  link("dg-alb", "dg-compute", "edge");
-  link(byId("dg-compute-2") ? "dg-compute-2" : "dg-compute", "dg-data", "inner");
-  if (byId("dg-compute-2")) link("dg-compute", "dg-compute-2", "inner");
+  link("dg-users", "dg-r53", "edge", false, "auto", "users-r53");
+  link("dg-r53", "dg-cf", "edge", false, "auto", "r53-cf");
+  link("dg-cf", "dg-alb", "edge", false, "auto", "cf-alb");
+  link("dg-alb", "dg-compute", "edge", false, "auto", "alb-compute");
+  link(byId("dg-compute-2") ? "dg-compute-2" : "dg-compute", "dg-data", "inner", false, "auto", "compute-data");
+  if (byId("dg-compute-2")) link("dg-compute", "dg-compute-2", "inner", false, "auto", "compute-compute2");
   // 좁은 화면에서는 오른쪽 서비스들이 VPC 아래로 내려가므로 VPC 테두리에서 바로 잇기
   const R = box("dg-right", true);
   const V = box("dg-vpc", true);
   const stacked = R && V && R.t >= V.b - 2;
-  link(stacked ? "dg-vpc" : "dg-compute", "dg-s3", "inner", true);
-  link("dg-ecr", stacked ? "dg-vpc" : "dg-compute", "inner");
-  link(stacked ? "dg-vpc" : "dg-data", "dg-cw", "inner");
+  link(stacked ? "dg-vpc" : "dg-compute", "dg-s3", "inner", true, "auto", "compute-s3");
+  link("dg-ecr", stacked ? "dg-vpc" : "dg-compute", "inner", false, "auto", "ecr-compute");
+  link(stacked ? "dg-vpc" : "dg-data", "dg-cw", "inner", false, "auto", "data-cw");
   // 가용 영역이 세로로 쌓이면 맨 아래 영역에서만 선을 그어 다른 영역을 가로지르지 않게
   const azBoxes = [0, 1, 2, 3, 4, 5].map((i) => box(`dg-az-${i}`, true));
   const lowest = Math.max(0, ...azBoxes.filter(Boolean).map((b) => b.b));
   azBoxes.forEach((b, i) => {
-    if (b && b.b >= lowest - 4) link(`dg-az-${i}`, byId("dg-ingress") ? "dg-ingress" : "", "inner", false, "v");
+    if (b && b.b >= lowest - 4) link(`dg-az-${i}`, byId("dg-ingress") ? "dg-ingress" : "", "inner", false, "v", "az-ingress");
   });
-  link("dg-ingress", "dg-ksvc", "inner");
+  link("dg-ingress", "dg-ksvc", "inner", false, "auto", "ingress-ksvc");
   const marker = (id, color, start) =>
     `<marker id="${id}" viewBox="0 0 10 10" refX="${start ? 1 : 9}" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${color}"/></marker>`;
   svg.innerHTML = `<defs>
@@ -559,6 +561,7 @@ App.route(
       byId("dg-slot").querySelectorAll("img").forEach((img) => img.addEventListener("load", drawDiagramEdges, { once: true }));
     };
     bindDiagram();
+    Flow.start(o);
     const ro = new ResizeObserver(() => drawDiagramEdges());
     ro.observe(byId("dg-slot"));
 
@@ -584,6 +587,7 @@ App.route(
         byId("dg-slot").innerHTML = buildDiagram(n);
         bindDiagram();
       }
+      Flow.update(n);
     });
   },
   { section: "home", crumbs: () => ["개요"] }
