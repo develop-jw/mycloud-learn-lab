@@ -3,6 +3,7 @@
 const express = require("express");
 const { readDB, writeDB } = require("../lib/store");
 const { newVpcId, newSubnetId, newSgId, newIgwId, newRouteTableId, newNaclId } = require("../lib/ids");
+const { subnetView } = require("../lib/net");
 
 const router = express.Router();
 
@@ -51,10 +52,15 @@ router.delete("/vpcs/:id", (req, res) => {
     ...db.securityGroups.filter((sg) => sg.vpcId === id),
     ...db.instances.filter((i) => i.vpcId === id && i.state !== "terminated"),
     ...db.internetGateways.filter((g) => g.vpcId === id && g.state === "attached"),
+    ...db.natGateways.filter((n) => n.vpcId === id),
+    ...db.loadBalancers.filter((l) => l.vpcId === id),
+    ...db.eksClusters.filter((c) => c.vpcId === id),
+    ...db.vpnGateways.filter((v) => v.vpcId === id),
+    ...db.dbInstances.filter((d) => d.vpcId === id),
   ];
   if (dependents.length > 0) {
     return res.status(409).json({
-      error: "DependencyViolation: 이 VPC를 사용 중인 리소스(서브넷/보안그룹/인스턴스/게이트웨이)가 남아있어 삭제할 수 없습니다.",
+      error: `DependencyViolation: 이 VPC를 사용 중인 리소스 ${dependents.length}개(서브넷·보안 그룹·인스턴스·게이트웨이·로드 밸런서 등)가 남아있어 삭제할 수 없습니다.`,
     });
   }
 
@@ -71,7 +77,7 @@ router.get("/subnets", (req, res) => {
   const db = readDB();
   const { vpcId } = req.query;
   const subnets = vpcId ? db.subnets.filter((s) => s.vpcId === vpcId) : db.subnets;
-  res.json(subnets.map((s) => ({ ...s, isPublic: isSubnetPublic(db, s.id) })));
+  res.json(subnets.map((s) => subnetView(db, s)));
 });
 
 router.post("/subnets", (req, res) => {
@@ -80,6 +86,16 @@ router.post("/subnets", (req, res) => {
   const vpc = db.vpcs.find((v) => v.id === vpcId);
   if (!vpc) {
     return res.status(400).json({ error: "존재하지 않는 VPC입니다." });
+  }
+  if (!/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(cidrBlock || "")) {
+    return res.status(400).json({ error: "CIDR 형식이 올바르지 않아요. 예: 10.0.1.0/24" });
+  }
+  const bits = Number(cidrBlock.split("/")[1]);
+  if (bits < 16 || bits > 28) {
+    return res.status(400).json({ error: "서브넷 크기는 /16 ~ /28 사이여야 해요 (AWS 제한)." });
+  }
+  if (db.subnets.some((s) => s.vpcId === vpcId && s.cidrBlock === cidrBlock)) {
+    return res.status(409).json({ error: "같은 VPC 안에 이미 같은 CIDR의 서브넷이 있어요 (CIDR 충돌)." });
   }
   const subnet = {
     id: newSubnetId(),
@@ -102,6 +118,15 @@ router.post("/subnets", (req, res) => {
 
 router.delete("/subnets/:id", (req, res) => {
   const db = readDB();
+  const id = req.params.id;
+  const inUse =
+    db.instances.some((i) => i.subnetId === id && i.state !== "terminated") ||
+    db.natGateways.some((n) => n.subnetId === id) ||
+    db.loadBalancers.some((l) => l.subnetIds.includes(id)) ||
+    db.efsFileSystems.some((f) => f.mountTargets.some((m) => m.subnetId === id));
+  if (inUse) {
+    return res.status(409).json({ error: "DependencyViolation: 이 서브넷에 인스턴스·NAT·로드 밸런서·EFS 탑재 대상이 남아 있어요." });
+  }
   db.subnets = db.subnets.filter((s) => s.id !== req.params.id);
   db.routeTables.forEach((rt) => (rt.subnetIds = rt.subnetIds.filter((id) => id !== req.params.id)));
   db.nacls.forEach((n) => (n.subnetIds = n.subnetIds.filter((id) => id !== req.params.id)));
@@ -109,12 +134,6 @@ router.delete("/subnets/:id", (req, res) => {
   res.json({ ok: true });
 });
 
-// 서브넷이 "퍼블릭"인지 판단: 연결된 라우팅 테이블에 0.0.0.0/0 → igw- 라우트가 있는지 확인
-function isSubnetPublic(db, subnetId) {
-  const rt = db.routeTables.find((rt) => rt.subnetIds.includes(subnetId));
-  if (!rt) return false;
-  return rt.routes.some((r) => r.target.startsWith("igw-"));
-}
 
 /* ===== 인터넷 게이트웨이 ===== */
 
@@ -202,6 +221,15 @@ router.post("/route-tables/:id/routes", (req, res) => {
   const db = readDB();
   const rt = db.routeTables.find((r) => r.id === req.params.id);
   if (!rt) return res.status(404).json({ error: "라우팅 테이블을 찾을 수 없습니다." });
+  if (!destination || !target) return res.status(400).json({ error: "대상 CIDR과 타깃을 모두 입력하세요." });
+  if (rt.routes.some((r) => r.destination === destination)) {
+    return res.status(409).json({ error: `이미 ${destination} 라우트가 있어요. 같은 대상은 하나만 둘 수 있어요.` });
+  }
+  const exists =
+    (target.startsWith("igw-") && db.internetGateways.some((g) => g.id === target && g.vpcId === rt.vpcId)) ||
+    (target.startsWith("nat-") && db.natGateways.some((n) => n.id === target && n.vpcId === rt.vpcId)) ||
+    (target.startsWith("vgw-") && db.vpnGateways.some((v) => v.id === target && v.vpcId === rt.vpcId));
+  if (!exists) return res.status(400).json({ error: "이 VPC에 연결된 게이트웨이만 타깃으로 쓸 수 있어요." });
   rt.routes.push({ id: `rt-${Date.now()}`, destination, target });
   writeDB(db);
   res.status(201).json(rt);
@@ -274,11 +302,21 @@ router.post("/security-groups/:id/rules", (req, res) => {
   const db = readDB();
   const sg = db.securityGroups.find((s) => s.id === req.params.id);
   if (!sg) return res.status(404).json({ error: "보안 그룹을 찾을 수 없습니다." });
+  const src = source || "0.0.0.0/0";
+  // 보안 그룹 체이닝: 소스에 IP 대역 대신 다른 보안 그룹 ID를 넣을 수 있음
+  if (src.startsWith("sg-")) {
+    const ref = db.securityGroups.find((x) => x.id === src);
+    if (!ref) return res.status(400).json({ error: "소스로 지정한 보안 그룹이 없어요." });
+    if (ref.vpcId !== sg.vpcId) return res.status(400).json({ error: "같은 VPC의 보안 그룹만 소스로 참조할 수 있어요." });
+  } else if (!/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(src)) {
+    return res.status(400).json({ error: "소스는 CIDR(예: 0.0.0.0/0) 또는 보안 그룹 ID(sg-...)여야 해요." });
+  }
   sg.inboundRules.push({
     id: `sgr-${Date.now()}`,
     protocol: protocol || "tcp",
     port,
-    source: source || "0.0.0.0/0",
+    source: src,
+    description: req.body.description || "",
   });
   writeDB(db);
   res.status(201).json(sg);
@@ -295,6 +333,15 @@ router.delete("/security-groups/:id/rules/:ruleId", (req, res) => {
 
 router.delete("/security-groups/:id", (req, res) => {
   const db = readDB();
+  const id = req.params.id;
+  const referencedBy = db.securityGroups.filter((x) => x.id !== id && x.inboundRules.some((r) => r.source === id));
+  if (referencedBy.length) {
+    return res.status(409).json({ error: `DependencyViolation: 보안 그룹 ${referencedBy.map((x) => x.name).join(", ")}의 규칙이 이 그룹을 참조하고 있어요.` });
+  }
+  const used =
+    db.instances.some((i) => i.securityGroupId === id && i.state !== "terminated") ||
+    db.loadBalancers.some((l) => (l.securityGroupIds || []).includes(id));
+  if (used) return res.status(409).json({ error: "DependencyViolation: 이 보안 그룹을 쓰는 인스턴스나 로드 밸런서가 있어요." });
   db.securityGroups = db.securityGroups.filter((s) => s.id !== req.params.id);
   writeDB(db);
   res.json({ ok: true });
