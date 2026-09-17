@@ -1,0 +1,12 @@
+# ---- 의존성 ----
+node_modules/
+
+# ---- 실습하면서 생기는 로컬 데이터 ----
+data/db.json
+uploads/*
+!uploads/.gitkeep
+
+# ---- OS / 에디터 ----
+.DS_Store
+.vscode/
+*.log

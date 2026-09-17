@@ -1,0 +1,16 @@
+{
+  "name": "mycloud-learn-lab",
+  "version": "1.0.0",
+  "description": "AWS 콘솔 클릭 흐름을 연습하는 나만의 AWS 디지털 트윈 (VPC/EC2/S3/RDS)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.0"
+  },
+  "author": "조종원",
+  "license": "UNLICENSED",
+  "private": true
+}

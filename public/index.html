@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyCloud Learn Lab — 나만의 AWS 디지털 트윈</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='1' y='1' width='38' height='38' rx='11' fill='%23e8680c'/%3E%3Cpath d='M11 13.5 L20 9 L29 13.5 L20 18 Z' fill='%230e1f45'/%3E%3Cpath d='M11 24.5 L20 29 L29 24.5' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- ---- 헤더: 로고 / 검색 / 리소스 만들기 ---- -->
+  <header class="site-header">
+    <div class="header-top">
+      <a class="logo" href="#/" aria-label="MyCloud Learn Lab 홈">
+        <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="1" y="1" width="38" height="38" rx="11" fill="#e8680c" />
+          <path d="M11 24.5 L20 29 L29 24.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M11 19 L20 23.5 L29 19" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".75" />
+          <path d="M11 13.5 L20 9 L29 13.5 L20 18 Z" fill="#0e1f45" stroke="#0e1f45" stroke-width="1.5" stroke-linejoin="round" />
+        </svg>
+        <span class="logo-text"><b>MyCloud</b><span>LEARN LAB</span></span>
+      </a>
+
+      <form class="header-search" id="header-search" role="search">
+        <input type="search" id="search-input" placeholder="리소스 이름 또는 ID 검색" aria-label="리소스 검색" />
+      </form>
+
+      <details class="create-menu" id="create-menu">
+        <summary class="btn primary">리소스 만들기</summary>
+        <div class="create-list">
+          <a href="#/vpc/create"><b>VPC</b><span>가상 네트워크 생성</span></a>
+          <a href="#/ec2/launch"><b>EC2 인스턴스</b><span>가상 서버 시작</span></a>
+          <a href="#/s3/create"><b>S3 버킷</b><span>객체 스토리지 생성</span></a>
+          <a href="#/rds/create"><b>RDS 데이터베이스</b><span>관리형 DB 생성</span></a>
+        </div>
+      </details>
+    </div>
+
+    <!-- ---- 메인 내비게이션 ---- -->
+    <div class="nav-wrap">
+      <nav class="main-nav" id="main-nav" aria-label="서비스">
+        <div class="nav-links">
+          <a href="#/" data-section="home">홈</a>
+          <a href="#/vpc" data-section="vpc">VPC</a>
+          <a href="#/ec2" data-section="ec2">EC2</a>
+          <a href="#/s3" data-section="s3">S3</a>
+          <a href="#/rds" data-section="rds">RDS</a>
+          <a href="#/guide" data-section="guide">실습 가이드</a>
+        </div>
+        <div class="nav-meta">
+          <span class="region-chip">서울 · ap-northeast-2</span>
+          <span class="user-chip"><span class="avatar">종</span>종원</span>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ---- 본문: 서비스별 좌측 메뉴 + 콘텐츠 ---- -->
+  <div class="shell" id="shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="page">
+      <nav class="crumbs" id="crumbs" aria-label="현재 위치"></nav>
+      <main id="content"></main>
+    </div>
+  </div>
+
+  <!-- ---- 푸터 ---- -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">MyCloud Learn Lab</div>
+        <p>AWS 콘솔의 클릭 흐름을 연습하기 위한 개인 학습용 시뮬레이터예요. 실제 AWS 계정·과금과는 연결되어 있지 않아요.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#/">홈</a>
+        <a href="#/guide">실습 가이드</a>
+        <a href="#/vpc">VPC</a>
+        <a href="#/ec2">EC2</a>
+        <a href="#/s3">S3</a>
+        <a href="#/rds">RDS</a>
+      </div>
+    </div>
+    <div class="footer-bottom">Built by 조종원 · SKALA 학습 프로젝트</div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
