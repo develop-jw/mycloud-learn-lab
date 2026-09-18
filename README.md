@@ -96,6 +96,92 @@ mycloud-learn-lab/
         └── guide.js       ← 실습 가이드 · 학습 진행률 · 통합 검색
 ```
 
+## 아키텍처
+
+```mermaid
+flowchart TB
+  UI["fa:fa-desktop 사용자 브라우저"]
+
+  subgraph Frontend["public/ · 정적 프론트엔드"]
+    HTML["fa:fa-html5 index.html"]
+    CSS["fa:fa-css3-alt css/style.css"]
+    subgraph JS["js/ · 화면별 모듈"]
+      CORE["fa:fa-js core.js<br/>라우터 · API 호출 · 공통 UI"]
+      OVERVIEW["fa:fa-js overview.js"]
+      FLOW["fa:fa-js flow.js<br/>트래픽 애니메이션"]
+      NETWORKJS["fa:fa-js network.js"]
+      COMPUTEJS["fa:fa-js compute.js"]
+      CONTAINERS["fa:fa-js containers.js"]
+      TRAFFIC["fa:fa-js traffic.js"]
+      STORAGEJS["fa:fa-js storage.js"]
+      SECURITY["fa:fa-js security.js"]
+      MONITORING["fa:fa-js monitoring.js"]
+      GUIDE["fa:fa-js guide.js"]
+      DATAJS["fa:fa-js data.js"]
+    end
+  end
+
+  subgraph Server["server.js"]
+    ENTRY["fa:fa-node-js Express 앱 진입점<br/>정적 서빙 + API 라우팅 연결"]
+  end
+
+  subgraph Routes["routes/ · REST API"]
+    VPC["fa:fa-network-wired vpc.js"]
+    NET["fa:fa-network-wired network.js"]
+    EC2["fa:fa-server ec2.js"]
+    ELB["fa:fa-code-branch elb.js"]
+    EDGE["fa:fa-globe edge.js"]
+    EKS["fa:fa-dharmachakra eks.js"]
+    S3["fa:fa-folder-open s3.js"]
+    RDS["fa:fa-database rds.js"]
+    OPS["fa:fa-gauge-high ops.js"]
+  end
+
+  subgraph Lib["lib/ · 공통 로직"]
+    STORE["fa:fa-file-code store.js<br/>data/db.json read · write"]
+    IDS["fa:fa-fingerprint ids.js<br/>AWS 스타일 ID 생성"]
+    SIM["fa:fa-clock sim.js<br/>2초 주기 시뮬레이션"]
+    COMPUTELIB["fa:fa-microchip compute.js"]
+    NETLIB["fa:fa-diagram-project net.js"]
+    METRICS["fa:fa-chart-line metrics.js"]
+    PRICING["fa:fa-won-sign pricing.js"]
+  end
+
+  subgraph Storage["실제 저장소"]
+    DB[("fa:fa-database data/db.json")]
+    UP["fa:fa-folder uploads/"]
+  end
+
+  UI -->|HTTP| HTML
+  HTML --- CSS
+  HTML --- JS
+  CORE -->|"fetch /api/*"| ENTRY
+
+  ENTRY --> VPC & NET & EC2 & ELB & EDGE & EKS & S3 & RDS & OPS
+
+  VPC & NET & EC2 & ELB & EDGE & EKS & S3 & RDS & OPS --> STORE
+  EC2 --> COMPUTELIB
+  NET --> NETLIB
+  OPS --> METRICS
+  OPS --> PRICING
+  VPC & NET & EC2 & S3 --> IDS
+
+  STORE --> DB
+  S3 -->|"파일 저장 · 조회"| UP
+
+  SIM -.->|주기 갱신| STORE
+  ENTRY -.->|서버 시작 시 구동| SIM
+
+  classDef server fill:#f0793b,stroke:#c2571f,color:#fff
+  classDef route fill:#5b8def,stroke:#3a63c2,color:#fff
+  classDef lib fill:#9b6bd6,stroke:#7143b0,color:#fff
+  classDef store fill:#2f9e64,stroke:#1f7a4c,color:#fff
+  class ENTRY server
+  class VPC,NET,EC2,ELB,EDGE,EKS,S3,RDS,OPS route
+  class STORE,IDS,SIM,COMPUTELIB,NETLIB,METRICS,PRICING lib
+  class DB,UP store
+```
+
 ## 한계
 
 - 리소스 정보는 `data/db.json` 파일 하나에 저장되는 단순한 구조라 **혼자 연습하는 용도**에 맞춰져 있습니다.
